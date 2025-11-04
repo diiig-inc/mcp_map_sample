@@ -1,0 +1,15 @@
+version: '2'
+
+services:
+  aimap:
+    build: .
+    container_name: aimap
+    ports:
+      - "8080:80"
+    volumes:
+      # 開発時のホットリロード用（本番では不要）
+      - ./public_html:/var/www/html
+      - ./lib:/var/www/lib
+    restart: unless-stopped
+    environment:
+      - TZ=Asia/Tokyo

@@ -1,0 +1,39 @@
+# 設定ファイル（APIキーを含む）
+lib/config.php
+.env
+*.env
+
+# OS生成ファイル
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# エディタ設定
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# ログファイル
+*.log
+logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# 一時ファイル
+tmp/
+temp/
+*.tmp
+*.cache
+
+# Node modules (将来的に必要になった場合)
+node_modules/
+
+# ビルドファイル (将来的に必要になった場合)
+dist/
+build/
+
+# Dockerボリュームデータ
+.docker/data/

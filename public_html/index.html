@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI MAPS</title>
+
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#00897B',
+                        'primary-dark': '#00695C',
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- Vue.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/vue@3/dist/vue.global.prod.js"></script>
+
+    <!-- Map Libraries (動的に読み込み) -->
+    <div id="map-loader"></div>
+
+    <style>
+        /* グラデーション背景 */
+        .bg-gradient-primary {
+            background: linear-gradient(135deg, #22c55e, #06b6d4);
+        }
+        .hover\:bg-gradient-primary-dark:hover {
+            background: linear-gradient(135deg, #16a34a, #0891b2);
+        }
+
+        /* タイピングインジケーターのアニメーション */
+        @keyframes bounce {
+            0%, 60%, 100% { transform: translateY(0); }
+            30% { transform: translateY(-10px); }
+        }
+        .typing-dot {
+            animation: bounce 1.4s infinite;
+        }
+        .typing-dot:nth-child(2) { animation-delay: 0.2s; }
+        .typing-dot:nth-child(3) { animation-delay: 0.4s; }
+
+        /* マップ用のスタイル */
+        #map {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            width: 100%;
+            height: 100vh;
+            z-index: 0;
+        }
+
+        /* MapLibre/Mapboxのマーカー */
+        .maplibregl-marker,
+        .mapboxgl-marker {
+            cursor: pointer;
+        }
+
+        /* ポップアップ */
+        .maplibregl-popup,
+        .mapboxgl-popup {
+            z-index: 10;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 overflow-hidden">
+    <div id="app" class="h-screen flex flex-col">
+        <!-- ヘッダー -->
+        <header class="bg-white text-gray-800 h-16 flex items-center justify-between px-4 shadow-lg z-20 relative">
+            <!-- ハンバーガーメニュー -->
+            <button
+                @click="toggleSidebar"
+                class="w-10 h-10 flex items-center justify-center hover:bg-gray-100 rounded-lg transition-colors"
+            >
+                <span class="text-2xl leading-none text-gray-700">☰</span>
+            </button>
+
+            <!-- ロゴ -->
+            <div class="flex items-center gap-2 text-base sm:text-lg font-semibold">
+                <img src="img/icon.svg" alt="AI MAPS" class="h-8 w-8">
+                <span class="hidden sm:inline">DIIIG Cloud Platform DEMO</span>
+            </div>
+
+            <!-- 右側のスペーサー -->
+            <div class="w-10"></div>
+        </header>
+
+        <!-- マップコンテナ -->
+        <div id="map"></div>
+
+        <!-- サイドバーメニュー -->
+        <div
+            class="fixed top-0 left-0 h-full w-64 sm:w-72 bg-white shadow-2xl transform transition-transform duration-300 z-30"
+            :class="sidebarOpen ? 'translate-x-0' : '-translate-x-full'"
+        >
+            <!-- サイドバーヘッダー -->
+            <div class="h-16 bg-gradient-primary text-white flex items-center justify-between px-4">
+                <div class="flex items-center gap-2 font-semibold text-base">
+                    <img src="img/icon.svg" alt="AI MAPS" class="h-8 w-8">
+                    <span>AI MAPS</span>
+                </div>
+                <!-- 閉じるボタン（統一サイズ） -->
+                <button
+                    @click="toggleSidebar"
+                    class="w-10 h-10 flex items-center justify-center hover:bg-white/20 rounded-lg transition-colors"
+                >
+                    <span class="text-xl leading-none">✕</span>
+                </button>
+            </div>
+
+            <!-- サイドバーコンテンツ -->
+            <div class="p-4 space-y-4 h-[calc(100%-4rem)] overflow-y-auto">
+                <!-- 新規作成ボタン -->
+                <button
+                    @click="createNewChat"
+                    class="w-full h-12 bg-gradient-primary hover:bg-gradient-primary-dark text-white px-4 rounded-lg flex items-center justify-center gap-2 transition-colors shadow-md font-medium text-sm"
+                >
+                    <span class="text-lg leading-none">🗂️</span>
+                    <span>チャットを新規作成</span>
+                </button>
+
+                <!-- チャットリスト -->
+                <div class="space-y-2">
+                    <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wider px-2">チャット</h3>
+                    <div class="space-y-1">
+                        <div
+                            v-for="thread in chatThreads.filter(t => t.messages.length > 0)"
+                            :key="thread.id"
+                            @click="switchThread(thread.id)"
+                            class="group flex items-center justify-between h-10 px-3 rounded-lg cursor-pointer transition-colors"
+                            :class="currentThreadId === thread.id
+                                ? 'bg-gradient-to-r from-[#22c55e]/10 to-[#06b6d4]/10 text-[#22c55e] font-medium'
+                                : 'hover:bg-gray-100 text-gray-700'"
+                        >
+                            <span class="flex-1 truncate text-sm">{{ thread.name }}</span>
+                            <!-- 削除ボタン（統一サイズ） -->
+                            <button
+                                @click.stop="deleteThread(thread.id)"
+                                title="削除"
+                                class="w-6 h-6 flex items-center justify-center text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all rounded"
+                            >
+                                <span class="text-base leading-none">✕</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- チャットパネル -->
+        <div
+            class="fixed bottom-4 right-4 bg-white rounded-2xl shadow-2xl z-20 flex flex-col transition-all duration-300"
+            :class="chatMinimized
+                ? 'w-16 h-16'
+                : 'w-[340px] sm:w-[380px] h-[45vh] sm:h-[480px]'"
+        >
+            <!-- 最小化時のUI -->
+            <div v-if="chatMinimized" class="w-full h-full flex items-center justify-center">
+                <button
+                    @click="chatMinimized = false"
+                    class="w-full h-full flex items-center justify-center bg-gradient-primary hover:bg-gradient-primary-dark text-white rounded-2xl transition-colors"
+                >
+                    <span class="text-2xl">💬</span>
+                </button>
+            </div>
+
+            <!-- 通常時のUI -->
+            <template v-if="!chatMinimized">
+                <!-- チャットヘッダー -->
+                <div class="h-14 bg-gradient-primary text-white px-4 flex items-center justify-between rounded-t-2xl shrink-0">
+                    <h2 class="text-sm sm:text-base font-semibold truncate">{{ chatTitle }}</h2>
+                    <div class="flex items-center gap-1">
+                        <!-- 最小化ボタン -->
+                        <button
+                            @click="chatMinimized = true"
+                            class="w-8 h-8 flex items-center justify-center hover:bg-white/20 rounded-lg transition-colors"
+                            title="最小化"
+                        >
+                            <span class="text-lg leading-none">−</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- サジェスチョンカード (初期表示) -->
+                <div v-if="messages.length === 0" class="flex-1 overflow-y-auto p-4 sm:p-6 space-y-3">
+                    <div
+                        v-for="suggestion in suggestions"
+                        :key="suggestion.id"
+                        @click="sendSuggestion(suggestion.text)"
+                        class="bg-gradient-to-br from-gray-50 to-white border-2 border-gray-200 hover:border-primary hover:shadow-lg p-3 sm:p-4 rounded-xl cursor-pointer transition-all transform hover:scale-[1.02]"
+                    >
+                        <p class="text-xs sm:text-sm text-gray-700 leading-relaxed">{{ suggestion.text }}</p>
+                    </div>
+                </div>
+
+                <!-- メッセージリスト -->
+                <div v-if="messages.length > 0" class="messages-container flex-1 overflow-y-auto p-3 sm:p-4 space-y-3 sm:space-y-4">
+                    <div
+                        v-for="message in messages"
+                        :key="message.id"
+                        class="flex"
+                        :class="message.role === 'user' ? 'justify-end' : 'justify-start'"
+                    >
+                        <div
+                            class="max-w-[85%] rounded-2xl px-3 sm:px-4 py-2 sm:py-3 shadow-sm"
+                            :class="message.role === 'user'
+                                ? 'bg-gradient-primary text-white'
+                                : 'bg-gray-100 text-gray-800'"
+                        >
+                            <!-- 通常のメッセージ -->
+                            <div v-if="!message.typing" v-html="formatMessage(message.content)" class="text-xs sm:text-sm leading-relaxed"></div>
+
+                            <!-- タイピングインジケーター（初期） -->
+                            <div v-if="message.typing && !message.content" class="flex items-center gap-2 py-1">
+                                <div class="flex gap-1">
+                                    <span class="typing-dot w-2 h-2 bg-current rounded-full"></span>
+                                    <span class="typing-dot w-2 h-2 bg-current rounded-full"></span>
+                                    <span class="typing-dot w-2 h-2 bg-current rounded-full"></span>
+                                </div>
+                                <span class="text-xs opacity-70">回答を考えています</span>
+                            </div>
+
+                            <!-- ストリーミング中 -->
+                            <div v-if="message.typing && message.content">
+                                <div v-html="formatMessage(message.content)" class="text-xs sm:text-sm leading-relaxed mb-2"></div>
+                                <div class="flex items-center gap-2 py-1">
+                                    <div class="flex gap-1">
+                                        <span class="typing-dot w-2 h-2 bg-current rounded-full"></span>
+                                        <span class="typing-dot w-2 h-2 bg-current rounded-full"></span>
+                                        <span class="typing-dot w-2 h-2 bg-current rounded-full"></span>
+                                    </div>
+                                    <span class="text-xs opacity-70">処理中...</span>
+                                </div>
+                            </div>
+
+                            <!-- POIカード表示 -->
+                            <div v-if="message.pois && message.pois.length > 0" class="mt-2 sm:mt-3 space-y-2">
+                                <div
+                                    v-for="poi in message.pois"
+                                    :key="poi.poi_id"
+                                    @click="zoomToPoi(poi)"
+                                    class="bg-white rounded-lg p-2 sm:p-3 cursor-pointer hover:shadow-md transition-all border"
+                                    :class="selectedPoiId === (poi.poi_id || poi.id)
+                                        ? 'border-[#22c55e] ring-2 ring-[#22c55e]/20'
+                                        : 'border-gray-200 hover:border-[#06b6d4]'"
+                                >
+                                    <h4 class="font-semibold text-xs sm:text-sm text-gray-800 leading-tight">{{ poi.name }}</h4>
+                                    <p v-if="poi.category" class="text-xs text-gray-500 mt-1">{{ poi.category }}</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 入力エリア -->
+                <div class="border-t border-gray-200 p-3 sm:p-4 bg-white rounded-b-2xl shrink-0">
+                    <div class="flex gap-2">
+                        <!-- テキストエリア -->
+                        <textarea
+                            v-model="inputMessage"
+                            @keydown.enter="handleEnterKey"
+                            @compositionstart="isComposing = true"
+                            @compositionend="isComposing = false"
+                            placeholder="AIに質問してお店を探してもらおう"
+                            class="flex-1 h-10 sm:h-12 resize-none border border-gray-300 rounded-lg px-3 sm:px-4 py-2 sm:py-3 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-xs sm:text-sm leading-tight"
+                            rows="1"
+                        ></textarea>
+                        <!-- 送信ボタン（inputと同じ高さ） -->
+                        <button
+                            @click="sendMessage"
+                            :disabled="!inputMessage.trim()"
+                            class="w-10 h-10 sm:w-12 sm:h-12 flex items-center justify-center bg-gradient-primary hover:bg-gradient-primary-dark text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-md"
+                        >
+                            <span class="text-lg sm:text-xl leading-none">➤</span>
+                        </button>
+                    </div>
+                </div>
+            </template>
+        </div>
+
+        <!-- POI詳細パネル（画面下部からスライド） -->
+        <div
+            v-if="selectedPoi"
+            class="fixed inset-x-0 bottom-0 z-30 transform transition-transform duration-300"
+            :class="selectedPoi ? 'translate-y-0' : 'translate-y-full'"
+        >
+            <!-- POI詳細コンテンツ -->
+            <div class="bg-white rounded-t-3xl shadow-2xl max-h-[50vh] sm:max-h-[60vh] overflow-hidden flex flex-col">
+                <!-- ドラッグハンドル -->
+                <div class="pt-2 pb-1 flex justify-center shrink-0">
+                    <div class="w-12 h-1.5 bg-gray-300 rounded-full"></div>
+                </div>
+
+                <!-- モーダルヘッダー -->
+                <div class="h-14 border-b border-gray-200 px-4 sm:px-6 flex items-center justify-between shrink-0">
+                    <h2 class="text-base sm:text-lg font-bold text-gray-800 truncate pr-4">{{ selectedPoi.name || 'POI詳細' }}</h2>
+                    <!-- 閉じるボタン -->
+                    <button
+                        @click="closePoi"
+                        class="w-10 h-10 flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors shrink-0"
+                    >
+                        <span class="text-2xl leading-none">✕</span>
+                    </button>
+                </div>
+
+                <!-- モーダルコンテンツ -->
+                <div class="flex-1 overflow-y-auto p-4 sm:p-6">
+                    <!-- ローディング表示 -->
+                    <div v-if="selectedPoi.loading" class="flex flex-col items-center justify-center py-12">
+                        <div class="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+                        <p class="mt-4 text-sm text-gray-600">詳細情報を読み込み中...</p>
+                    </div>
+
+                    <!-- エラー表示 -->
+                    <div v-else-if="selectedPoi.error" class="bg-red-50 border border-red-200 rounded-lg p-4 text-sm text-red-700">
+                        <p>{{ selectedPoi.error }}</p>
+                    </div>
+
+                    <!-- 詳細情報表示 -->
+                    <div v-else class="space-y-4 sm:space-y-6 max-w-3xl mx-auto">
+
+                        <!-- カテゴリー表示 -->
+                        <div v-if="selectedPoi.category" class="text-sm text-gray-600">
+                            <strong class="font-semibold">カテゴリー:</strong> {{ selectedPoi.category }}
+                        </div>
+
+                        <!-- 説明文 -->
+                        <div v-if="selectedPoi.description" class="text-sm text-gray-700 leading-relaxed">
+                            {{ selectedPoi.description }}
+                        </div>
+
+                        <!-- 詳細情報 -->
+                        <div class="space-y-4">
+                            <!-- 住所 -->
+                            <div v-if="selectedPoi.address" class="flex gap-3">
+                                <span class="text-2xl leading-none shrink-0">📍</span>
+                                <div class="flex-1 min-w-0">
+                                    <strong class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">住所</strong>
+                                    <p class="text-sm text-gray-800">{{ selectedPoi.address }}</p>
+                                </div>
+                            </div>
+
+                            <!-- 電話番号 -->
+                            <div v-if="selectedPoi.phone || selectedPoi.contact?.phone" class="flex gap-3">
+                                <span class="text-2xl leading-none shrink-0">📞</span>
+                                <div class="flex-1 min-w-0">
+                                    <strong class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">電話番号</strong>
+                                    <a
+                                        :href="'tel:' + (selectedPoi.phone || selectedPoi.contact.phone)"
+                                        class="text-sm text-primary hover:underline"
+                                    >
+                                        {{ selectedPoi.phone || selectedPoi.contact.phone }}
+                                    </a>
+                                </div>
+                            </div>
+
+                            <!-- ウェブサイト -->
+                            <div v-if="selectedPoi.website || selectedPoi.contact?.website" class="flex gap-3">
+                                <span class="text-2xl leading-none shrink-0">🌐</span>
+                                <div class="flex-1 min-w-0">
+                                    <strong class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">ウェブサイト</strong>
+                                    <a
+                                        :href="selectedPoi.website || selectedPoi.contact.website"
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        class="text-sm text-primary hover:underline break-all"
+                                    >
+                                        {{ selectedPoi.website || selectedPoi.contact.website }}
+                                    </a>
+                                </div>
+                            </div>
+
+                            <!-- カスタムフィールド -->
+                            <template v-if="selectedPoi.custom_fields">
+                                <div
+                                    v-for="(value, key) in selectedPoi.custom_fields"
+                                    :key="key"
+                                    v-if="key !== '評価'"
+                                    class="flex gap-3"
+                                >
+                                    <div class="flex-1 min-w-0">
+                                        <strong class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">{{ key }}</strong>
+                                        <p class="text-sm text-gray-800">{{ value }}</p>
+                                    </div>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- JavaScript -->
+    <script src="js/map.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>

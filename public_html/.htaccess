@@ -1,0 +1,113 @@
+# AI MAPS - Apache Configuration
+# レンタルサーバー用の設定ファイル
+
+# ============================================
+# セキュリティ設定
+# ============================================
+
+# config.phpへの直接アクセスを禁止
+<FilesMatch "config\.php$">
+    Require all denied
+</FilesMatch>
+
+# .gitファイルへのアクセスを禁止
+<FilesMatch "^\.git">
+    Require all denied
+</FilesMatch>
+
+# バックアップファイルへのアクセスを禁止
+<FilesMatch "\.(bak|old|backup|swp|tmp)$">
+    Require all denied
+</FilesMatch>
+
+# ============================================
+# CORS設定
+# ============================================
+
+# 開発環境用: すべてのオリジンを許可
+# 本番環境では特定のドメインのみ許可するよう変更してください
+<IfModule mod_headers.c>
+    Header set Access-Control-Allow-Origin "*"
+    Header set Access-Control-Allow-Methods "GET, POST, OPTIONS"
+    Header set Access-Control-Allow-Headers "Content-Type, Authorization"
+</IfModule>
+
+# ============================================
+# PHP設定
+# ============================================
+
+<IfModule mod_php.c>
+    # エラー表示を無効化（本番環境）
+    php_flag display_errors Off
+    php_flag display_startup_errors Off
+    
+    # エラーログを有効化
+    php_flag log_errors On
+    
+    # アップロードサイズ制限
+    php_value upload_max_filesize 10M
+    php_value post_max_size 10M
+    
+    # タイムアウト設定
+    php_value max_execution_time 60
+</IfModule>
+
+# ============================================
+# キャッシュ設定
+# ============================================
+
+<IfModule mod_expires.c>
+    ExpiresActive On
+    
+    # HTML（キャッシュしない）
+    ExpiresByType text/html "access plus 0 seconds"
+    
+    # CSS/JS（1週間）
+    ExpiresByType text/css "access plus 1 week"
+    ExpiresByType application/javascript "access plus 1 week"
+    
+    # 画像（1ヶ月）
+    ExpiresByType image/jpeg "access plus 1 month"
+    ExpiresByType image/png "access plus 1 month"
+    ExpiresByType image/gif "access plus 1 month"
+    ExpiresByType image/svg+xml "access plus 1 month"
+    ExpiresByType image/webp "access plus 1 month"
+</IfModule>
+
+# ============================================
+# Gzip圧縮
+# ============================================
+
+<IfModule mod_deflate.c>
+    AddOutputFilterByType DEFLATE text/html text/plain text/xml text/css
+    AddOutputFilterByType DEFLATE application/javascript application/json
+    AddOutputFilterByType DEFLATE image/svg+xml
+</IfModule>
+
+# ============================================
+# URL Rewrite（必要に応じて）
+# ============================================
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    
+    # HTTPSへのリダイレクト（本番環境で有効化）
+    # RewriteCond %{HTTPS} off
+    # RewriteRule ^(.*)$ https://%{HTTP_HOST}/$1 [R=301,L]
+</IfModule>
+
+# ============================================
+# デフォルトファイル
+# ============================================
+
+DirectoryIndex index.html index.php
+
+# ============================================
+# その他の設定
+# ============================================
+
+# ディレクトリリスティングを無効化
+Options -Indexes
+
+# シンボリックリンクを有効化
+Options +FollowSymLinks

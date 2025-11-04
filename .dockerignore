@@ -1,0 +1,33 @@
+# Git関連
+.git
+.gitignore
+
+# ドキュメント
+README.md
+PROJECT_DETAIL.md
+
+# 設定ファイル（実際のAPIキーを含む）
+lib/config.php
+
+# OS生成ファイル
+.DS_Store
+Thumbs.db
+
+# エディタ設定
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# ログファイル
+*.log
+
+# Docker関連
+docker-compose.yml
+Dockerfile
+.dockerignore
+
+# 一時ファイル
+tmp/
+temp/
