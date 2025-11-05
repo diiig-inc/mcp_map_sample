@@ -404,7 +404,6 @@ define('DEBUG_MODE', true);
 ## 作成者
 
 - 開発: DIIIG Inc.
-- リポジトリ: [https://github.com/yourusername/aimap](https://github.com/yourusername/aimap)
 
 ## 謝辞
 

@@ -354,7 +354,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## Authors
 
 - Development: DIIIG Inc.
-- Repository: [https://github.com/yourusername/aimap](https://github.com/yourusername/aimap)
 
 ## Acknowledgments
 
